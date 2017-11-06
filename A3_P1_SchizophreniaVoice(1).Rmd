@@ -20,7 +20,7 @@ N.B. Question to be answered via email to Celine: can you characterize voice in 
 N.B. There are looots of files to be dealt with. Probably too many for your computer. This is a challenge for you. Some (complementary) possible strategies: You can select a subset of files only (and you have to justify your choice). You can learn how to use the apply() or map() functions. You can coordinate with classmates.
 ```{r}
 library(pacman)
-p_load(pastecs, crqa, ggplot2, stringr)
+p_load(pastecs, crqa, ggplot2, stringr, lme4, lmerTest)
 ```
 
 Define working directory and load the data
@@ -115,10 +115,10 @@ files <- list.files(path = "C:/Users/Bruger/Dropbox/0Aarhus Universitet/Experime
 setwd("C:/Users/Bruger/Dropbox/0Aarhus Universitet/Experimental Methods III/Assignment 3/ass3/Folderr")
 
 
-meanPitch = NULL
-SDPitch = NULL
-crqaPitch = NULL
+mean = NULL
+sd = NULL
 n = 1
+study = NULL
 participant = NULL
 diagnosis = NULL
 trial = NULL
@@ -144,6 +144,8 @@ for (i in files) {
   x = read.delim(i)
   x = x$f0
   
+  Study = str_extract(i, "Study+\\d")
+  study[n] = str_extract(Study, "\\d")
   ID = str_extract(i, "S+\\d+")
   participant[n] = str_extract(ID, "\\d+")
   Diagnosis = str_extract(i, "D+\\d")
@@ -152,8 +154,13 @@ for (i in files) {
   trial[n] = str_extract(Trial, "\\d+")
   
   
-  meanPitch[n] = mean(x, NA.RM = T)
-  SDPitch[n] = sd(x)
+  mean[n] = mean(x, NA.RM = T)
+  sd[n] = sd(x)
+  range[n] = range(x)
+  median[n] = median(x, NA.RM = T)
+  IQR[n] = IQR(x)
+  mad[n] = mad(x, center = mean(x))
+  coef_var[n] = sd(x)/mean(x)*100
   
   par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
   
@@ -190,114 +197,106 @@ for (i in files) {
   n = n+1
 }
 
-df = data.frame(meanPitch, SDPitch, participant, diagnosis, trial, crqaPitch, PR, DET, NRLINE, maxL, L, ENTR, LAM, TT, mean, sd, range, median, IQR, mad, coef_var, ans1)
+df = data.frame(participant, study, trial, diagnosis, PR, DET, NRLINE, maxL, L, ENTR, LAM, TT, mean, sd, range, median, IQR, mad, coef_var)
+
 write.csv(df, file = "pitchfile.csv")
 
 ``` 
 
-```{r}
-
-
-#___________________
-# make a list of the files that we are running through
-files <- list.files(path = "C:/Users/Bruger/Dropbox/0Aarhus Universitet/Experimental Methods III/Assignment 3/ass3/New folder")
-#files
-
-
-
-# make empty list for all the information of interest
-Subject <- NULL
-study <-  NULL
-trial <-  NULL
-diagnosis <-  NULL
-PR = NULL
-DET <- NULL
-NRLINE <- NULL
-maxL <- NULL
-L <- NULL
-ENTR <- NULL
-LAM <- NULL
-TT <- NULL
-mean <- NULL
-sd <- NULL
-range <- NULL
-median <- NULL
-IQR = NULL
-mad = NULL
-coef_var = NULL
-
-# for every loop n will be increased by 1 so that we can distinguish between each file
-n = 1
-
-# for loop to run through each file in the list (files) we have already created above
-for (file in files) {
-  
-  # read the file into a data frame to be used in the loop
-  df = read.delim(file)
-  
-  # create the values to be put in each of the empty lists that we created above
-  Subject[n] <-  substr(file, 14, 18)
-  study[n] <-  substr(file, 7, 12)
-  trial[n] <- sub("_", "", substr(file, 20, 21))
-  diagnosis[n] <-  substr(file, 14, 14)
-  mean[n] <- mean(df$f0)
-  sd[n] <- sd(df$f0)
-  range[n] <- range(df$f0)
-  median[n] <- median(df$f0)
-  IQR[n] <- IQR(df$f0)
-  mad[n] <- mad(df$f0,center = mean(df$f0))
-  coef_var[n] <- sd(df$f0)/mean(df$f0)*100
-  
-  # set parameterlist and optimize them
-  par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
-  
-  parameters <- try(optimizeParam(df$f0, df$f0, par, min.rec = 3.5, max.rec = 4.5))
-  
-  # this if/else statement assures that we the files that does not fit the parameters are still considered in the final lists 
-  if (length(parameters) > 1) {
-  
-  results1 <- crqa(df$f0, df$f0, delay = parameters$delay, embed = parameters$emddim, radius = parameters$radius, normalize = 0, rescale = 0, mindiagline = 2, minvertline = 2)
-  
-  PR[n] = results1$RR
-  DET[n] <- results1$DET
-  NRLINE[n] <- results1$NRLINE
-  maxL[n] <- results1$maxL
-  L[n] <- results1$L
-  ENTR[n] <- results1$ENTR
-  LAM[n] <- results1$LAM
-  TT[n] <- results1$TT
-  
-  }
-  
-  else {
-  
-  PR[n] = NA
-  DET[n] <- NA
-  NRLINE[n] <- NA
-  maxL[n] <- NA
-  L[n] <- NA
-  ENTR[n] <- NA
-  LAM[n] <- NA
-  TT[n] <- NA
-  
-  }
-  
-#increase n by 1 to index into the next value in the lists
-  n = n + 1
-  
-}
-
-# merge the list to a data frame
-all_data_df_test <-  data.frame(Subject, study, trial, diagnosis, PR, DET, NRLINE, maxL, L, ENTR, LAM, TT, mean, sd, range, median)
-
-#writedata frame to csv file
-write.csv(all_data_df_test,file = "dfstudy1")
-```
 
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+```{r}
+PRmodel = lmer(PR ~ 1 + diagnosis + (1|study), data = df)
+summary(PRmodel)
+
+DETmodel = lmer(DET ~ 1 + diagnosis + (1|study), data = df)
+summary(DETmodel)
+#significant
+
+NRLINEmodel = lmer(NRLINE ~ 1 + diagnosis + (1|study), data = df)
+summary(NRLINEmodel)
+
+maxLmodel = lmer(maxL ~ 1 + diagnosis + (1|study), data = df)
+summary(maxLmodel)
+
+Lmodel = lmer(L ~ 1 + diagnosis + (1|study), data = df)
+summary(Lmodel)
+
+ENTRmodel = lmer(ENTR ~ diagnosis + (1|study), data = df)
+summary(ENTRmodel)
+#significant
+
+LAMmodel = lmer(LAM ~ diagnosis + (1|study), data = df)
+summary(LAMmodel)
+#significant
+
+TTmodel = lmer(TT ~ diagnosis + (1|study), data = df)
+summary(TTmodel)
+#significant
+
+meanmodel = lmer(mean ~ 1 + diagnosis + (1|study), data = df)
+summary(meanmodel)
+#significant
+
+sdmodel = lmer(sd ~ 1 + diagnosis + (1|study), data = df)
+summary(sdmodel)
+#significant
+
+rangemodel = lmer(range ~ 1 + diagnosis + (1|study), data = df)
+summary(rangemodel)
+#significant
+
+```
+
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+```{r}
+PRmodel1 = lm(PR ~ 1 + diagnosis + study, data = df)
+summary(PRmodel1)
+#not significant
+
+DETmodel1 = lm(DET ~ 1 + diagnosis + study, data = df)
+summary(DETmodel1)
+#significant (*** for 1-2, * for 1-4)
+
+NRLINEmodel1 = lm(NRLINE ~ 1 + diagnosis + study, data = df)
+summary(NRLINEmodel1)
+#significant (** for 1-2, *** for 1-4)
+
+maxLmodel1 = lm(maxL ~ 1 + diagnosis + study, data = df)
+summary(maxLmodel1)
+#significant (*** for both)
+
+Lmodel1 = lm(L ~ 1 + diagnosis + study, data = df)
+summary(Lmodel1)
+#not significant for 1-2, significant ** for 1-4
+
+ENTRmodel1 = lm(ENTR ~ diagnosis + study, data = df)
+summary(ENTRmodel1)
+#significant *** for 1-2
+
+LAMmodel1 = lm(LAM ~ diagnosis + study, data = df)
+summary(LAMmodel1)
+#significant *** for 1-2
+
+TTmodel1 = lm(TT ~ diagnosis + study, data = df)
+summary(TTmodel1)
+#significant *** for 1-2 
+
+meanmodel1 = lm(mean ~ 1 + diagnosis + study, data = df)
+summary(meanmodel1)
+#significant *** for 1-2
+
+sdmodel1 = lm(sd ~ 1 + diagnosis + study, data = df)
+summary(sdmodel1)
+#significant ** for 1-2
+
+rangemodel1 = lm(range ~ 1 + diagnosis + study, data = df)
+summary(rangemodel1)
+#significant *** for 1-2
+```
+
 
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
 - Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
