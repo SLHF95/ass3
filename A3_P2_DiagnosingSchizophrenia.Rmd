@@ -1,0 +1,140 @@
+---
+title: "Assignment 3 - Part 2 - Diagnosing Schizophrenia from Voice"
+author: "Riccardo Fusaroli"
+date: "October 17, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(pacman)
+p_load(lmerTest, modelr, stringr, tidyverse, caret, cvTools, Metrics, ggplot2, pROC, happybiRthday)
+```
+
+## Assignment 3 - Diagnosing schizophrenia from voice
+
+In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
+In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
+
+### Question 1
+Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
+```{r}
+getwd()
+locpath=getwd()
+setwd(locpath)
+data = read.csv("pitchfile.csv")
+
+
+logmodel = glmer(diagnosis ~ 1 + range + (1|study), data = data, family = binomial)
+summary(logmodel)
+#significant, so you can diagnose schizophrenia from pith range??
+
+inv.logit
+```
+
+
+Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
+```{r}
+#confusion matrix
+data$PredictionsPerc = predict(logmodel)
+data$Predictions[data$PredictionsPerc > 0] = "1"
+data$Predictions[data$PredictionsPerc <= 0] = "0"
+confMatrix = confusionMatrix(data = data$Predictions, reference = data$diagnosis, positive = "1")
+confMatrix
+
+confMatrix$overall["Accuracy"]
+confMatrix$byClass["Sensitivity"]
+confMatrix$byClass["Specificity"]
+
+#ROCcurve
+rocCurve = roc(response = data$diagnosis, predictor = data$PredictionsPerc)
+
+auc(rocCurve)
+
+ci(rocCurve)
+
+plot(rocCurve, legacy.axes = TRUE)
+```
+
+
+Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
+```{r}
+data$participant = as.factor(data$participant)
+data$foldsID = as.numeric(data$participant)
+folds = createFolds(unique(data$foldsID), k = 5)
+accu = NULL
+sens = NULL
+spec = NULL
+auc = NULL
+
+n = 1
+
+for(i in folds){
+  train = subset(data, !(data$foldsID %in% i))
+  test = subset(data, data$foldsID %in% i)
+
+  newlogmodel = glmer(diagnosis ~ 1 + range + (1|study), data = train, family = binomial)
+  
+  newpred = predict(newlogmodel, newdata = test, allow.new.levels = TRUE)
+  
+  newpred = data.frame(PredictionsPerc = newpred, observed = test$diagnosis)
+  
+  data$Predictions[newpred$PredictionsPerc > 0] = "1"
+  data$Predictions[newpred$PredictionsPerc <= 0] = "0"
+  cm = confusionMatrix(data = data$Predictions, reference = data$diagnosis, positive = "1")
+  
+  accu[n] = cm$overall["Accuracy"]
+  sens[n] = cm$byClass["Sensitivity"]
+  spec[n] = cm$byClass["Specificity"]
+  
+  roc = roc(response = test$diagnosis, predictor = newpred$PredictionsPerc)
+  auc[n] = auc(roc)
+  
+  n = n+1
+}
+
+mean(accu) 
+mean(sens)
+mean(spec)
+mean(auc)
+```
+
+
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
+N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
+N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+
+### Question 2
+
+Which single predictor is the best predictor of diagnosis? 
+
+
+### Question 3
+
+Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
+
+Remember:
+- Out-of-sample error crucial to build the best model!
+- After choosing the model, send Celine and Riccardo the code of your model
+
+
+### Question 4: Report the results
+
+METHODS SECTION: how did you analyse the data?
+we extracted these acoustic features
+created these models
+compared the models in the form of AUC
+report winning model: after doing that the best model was model x. this was the performance on the model.
+comment on: which kind of errors does the model make (sensitivity >< specificity)
+comment on the acoustic features that were selected: what does it mean that this feature is best?
+AUC is a more robust way to assess how good the model is
+
+RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
+
+### Bonus question 5
+
+You have some additional bonus data involving speech rate, pauses, etc. Include them in your analysis. Do they improve classification?
+
+### Bonus question 6
+
+Logistic regression is only one of many classification algorithms. Try using others and compare performance. Some examples: Discriminant Function, Random Forest, Support Vector Machine, etc. The package caret provides them.
