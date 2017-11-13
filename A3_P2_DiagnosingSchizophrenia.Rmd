@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(pacman)
-p_load(lmerTest, modelr, stringr, tidyverse, caret, cvTools, Metrics, ggplot2, pROC, happybiRthday)
+p_load(lmerTest, modelr, stringr, tidyverse, caret, cvTools, Metrics, ggplot2, pROC)
 ```
 
 ## Assignment 3 - Diagnosing schizophrenia from voice
@@ -26,10 +26,11 @@ data = read.csv("pitchfile.csv")
 
 
 logmodel = glmer(diagnosis ~ 1 + range + (1|study), data = data, family = binomial)
+
 summary(logmodel)
 #significant, so you can diagnose schizophrenia from pith range??
 
-inv.logit
+#inv.logit
 ```
 
 
