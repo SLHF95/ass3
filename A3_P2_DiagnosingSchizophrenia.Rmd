@@ -108,6 +108,119 @@ N.B. Now you have two levels of structure: subject and study. Should this impact
 ### Question 2
 
 Which single predictor is the best predictor of diagnosis? 
+```{r}
+f_to_k = function(temp) {
+  kelvin = ((temp - 32) * (5/9)) + 273.15
+  return(kelvin)
+}
+
+f_to_k(32)
+```
+
+```{r}
+testing = function(models) {
+  accu = NULL
+  sens = NULL
+  spec = NULL 
+  auc = NULL
+  
+  n = 1
+  
+  for(i in folds){
+    train = subset(data, !(data$foldsID %in% i))
+    test = subset(data, data$foldsID %in% i)
+    
+    models 
+    
+    newpred = predict(models, newdata = test, allow.new.levels = TRUE)
+    
+    newpred = data.frame(PredictionsPerc = newpred, observed = test$diagnosis)
+    
+    data$Predictions[newpred$PredictionsPerc > 0] = "1"
+    data$Predictions[newpred$PredictionsPerc <= 0] = "0"
+    cm = confusionMatrix(data = data$Predictions, reference = data$diagnosis, positive = "1")
+    
+    accu[n] = cm$overall["Accuracy"]
+    sens[n] = cm$byClass["Sensitivity"]
+    spec[n] = cm$byClass["Specificity"]
+    
+    roc = roc(response = test$diagnosis, predictor = newpred$PredictionsPerc)
+    auc[n] = auc(roc)
+    
+    n = n+1
+    
+    
+  }
+
+  return(mean(accu))
+  return(mean(sens))
+  return(mean(spec))
+  return(mean(auc))
+
+}
+
+part = glmer(diagnosis ~ 1 + trial + (1|study), data = train, family = binomial)
+testing(part)
+```
+
+```{r}
+testing = function(modelstring, numfolds = 4) {
+  accu = NULL
+  sens = NULL
+  spec = NULL
+  auc = NULL
+  
+  folds = createFolds(unique(data$foldsID), k = numfolds)
+  n = 1
+  
+  for(i in folds){
+    train = subset(data, !(data$foldsID %in% i))
+    test = subset(data, data$foldsID %in% i)
+    
+    models = glmer(modelstring, data = train, family = binomial)
+    
+    newpred = predict(models, newdata = test, allow.new.levels = TRUE)
+    
+    newpred = data.frame(PredictionsPerc = newpred, observed = test$diagnosis)
+    
+    data$Predictions[newpred$PredictionsPerc > 0] = "1"
+    data$Predictions[newpred$PredictionsPerc <= 0] = "0"
+    cm = confusionMatrix(data = data$Predictions, reference = data$diagnosis, positive = "1")
+    
+    accu[n] = cm$overall["Accuracy"]
+    sens[n] = cm$byClass["Sensitivity"]
+    spec[n] = cm$byClass["Specificity"]
+    
+    roc = roc(response = test$diagnosis, predictor = newpred$PredictionsPerc)
+    auc[n] = auc(roc)
+    
+    n = n+1
+    
+    
+  }
+  mean_accu = mean(accu)
+  mean_sens = mean(sens)
+  mean_spec = mean(spec) 
+  mean_auc = mean(auc)
+  new_list = list(mean_accu, mean_sens, mean_spec, mean_auc)
+  
+  return(new_list)
+  
+  #data.frame(mean_accu, mean_sens, mean_spec, mean_auc)
+
+}
+
+#testing(modelstring = "diagnosis ~ 1 + trial + (1|study)")
+
+modelstring = list("trial" = "diagnosis ~ 1 + trial + (1|study)", "range" = "diagnosis ~ 1 + range + (1|study)")
+
+for (string in modelstring) {
+  testing(string)
+  
+}
+
+```
+
 
 
 ### Question 3
